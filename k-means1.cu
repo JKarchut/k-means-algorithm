@@ -178,10 +178,14 @@ int main(int argc, char **argv) {
             }
         }
         for(int i = 0; i < numClusters; i++)
+        {
             for(int j = 0; j < numCoords; j++)
             {
                 clusters_h[i * numCoords + j] /=newClusterSize[i];
+                std::cout<< clusters_h[i * numCoords + j] << ' ';
             }
+            std::endl;
+        }
         delta /= numObjs;
     }while(delta > threshold);
     std::ofstream output("output.txt");
