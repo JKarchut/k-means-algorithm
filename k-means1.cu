@@ -181,10 +181,13 @@ int main(int argc, char **argv) {
         {
             for(int j = 0; j < numCoords; j++)
             {
-                clusters_h[i * numCoords + j] /=newClusterSize[i];
+                if(newClusterSize[i] > 0)
+                {
+                    clusters_h[i * numCoords + j] /= newClusterSize[i];
+                }
                 std::cout<< clusters_h[i * numCoords + j] << ' ';
             }
-            std::endl;
+            std::cout << std::endl;
         }
         delta /= numObjs;
     }while(delta > threshold);
