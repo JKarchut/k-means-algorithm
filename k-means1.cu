@@ -1,3 +1,4 @@
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>     /* strtok() */
@@ -107,7 +108,7 @@ int main(int argc, char **argv) {
     numCoords   = 0;
     numObjs     = 0;
     
-    while ( (opt=getopt(argc,argv,"i:n:t:N:k"))!= EOF) {
+    while ( (opt=getopt(argc,argv,"i:n:t:N:k:"))!= EOF) {
         switch (opt) {
             case 'i': filename=optarg;
                       break;
@@ -124,7 +125,7 @@ int main(int argc, char **argv) {
         }
     }
     std::cout << numObjs << ' ' << numCoords << ' ' << numClusters << std::endl;
-    if (filename == NULL || numClusters <= 1 || numCoords < 1 || numObjs < 1 || numClusters < numObjs) usage(argv[0], threshold);
+    if (filename == NULL || numClusters <= 1 || numCoords < 1 || numObjs < 1 || numClusters >= numObjs) usage(argv[0], threshold);
 
     printf("reading data points from file %s\n",filename);
 
