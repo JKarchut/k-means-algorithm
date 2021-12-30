@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
     numCoords   = 0;
     numObjs     = 0;
     
-    while ( (opt=getopt(argc,argv,"i:n:t:N:n"))!= EOF) {
+    while ( (opt=getopt(argc,argv,"i:n:t:N:k"))!= EOF) {
         switch (opt) {
             case 'i': filename=optarg;
                       break;
@@ -123,7 +123,8 @@ int main(int argc, char **argv) {
                       break;
         }
     }
-    if (filename == 0 || numClusters <= 1 || numCoords < 1 || numObjs < 1 || numClusters < numObjs) usage(argv[0], threshold);
+    std::cout << numObjs << ' ' << numCoords << ' ' << numClusters << std::endl;
+    if (filename == NULL || numClusters <= 1 || numCoords < 1 || numObjs < 1 || numClusters < numObjs) usage(argv[0], threshold);
 
     printf("reading data points from file %s\n",filename);
 
