@@ -21,7 +21,7 @@ void usage(char *argv0, float threshold) {
     exit(-1);
 }
 
-void read_file(char *filename, float* objects, int numObjs, int numCoords)
+void file_read(char *filename, float* objects, int numObjs, int numCoords)
 {
     std::ifstream input(filename);
     int id;
@@ -124,7 +124,6 @@ int main(int argc, char **argv) {
         }
     }
     if (filename == 0 || numClusters <= 1 || numCoords < 1 || numObjs < 1 || numClusters < numObjs) usage(argv[0], threshold);
-    io_timing = wtime();
 
     printf("reading data points from file %s\n",filename);
 
@@ -161,7 +160,7 @@ int main(int argc, char **argv) {
     do{
         delta = 0.0;
         memset(newClusterSize, 0, sizeof(int) * numClusters);
-        memeset(clusters_h, 0, sizeof(float) * numCoords * numClusters);
+        memset(clusters_h, 0, sizeof(float) * numCoords * numClusters);
         cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice);
         findClosest<<<block_count,thread_count>>>(objects_d, clusters_d, membership_d, change_d, numObjs, numClusters, numCoords);
 
@@ -182,9 +181,18 @@ int main(int argc, char **argv) {
                 clusters_h[i * numCoords + j] /=newClusterSize[i];
             }
         delta /= numObjs;
-    }while(delta > threshold)
-
-
+    }while(delta > threshold);
+    std::ofstream output("output.txt");
+    for(int i = 0; i < numClusters; i++)
+    {
+        output << i << ' ';
+        for(int j = 0; j < numCoords; j++)
+        {
+            output << clusters_h[i * numCoords + j] << ' ';
+        }
+        output << '\n';
+    }
+    output.close();
     free(objects_h);
     free(membership_h);
     free(change_h);
