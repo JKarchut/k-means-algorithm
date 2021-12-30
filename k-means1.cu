@@ -162,12 +162,12 @@ int main(int argc, char **argv) {
     do{
         delta = 0.0;
         memset(newClusterSize, 0, sizeof(int) * numClusters);
-        memset(clusters_h, 0, sizeof(float) * numCoords * numClusters);
         cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice);
         findClosest<<<block_count,thread_count>>>(objects_d, clusters_d, membership_d, change_d, numObjs, numClusters, numCoords);
 
         cudaMemcpy(change_h, change_d, sizeof(int) * numObjs, cudaMemcpyDeviceToHost);
         cudaMemcpy(membership_h, membership_d, sizeof(int) * numObjs, cudaMemcpyDeviceToHost);
+        memset(clusters_h, 0, sizeof(float) * numCoords * numClusters);
         for(int i = 0; i < numObjs; i++)
         {
             delta += change_h[i];
