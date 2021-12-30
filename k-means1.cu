@@ -22,6 +22,14 @@ void usage(char *argv0, float threshold) {
     exit(-1);
 }
 
+int upperbound(int x, int y)
+{
+    if(x % y == 0)
+        return x / y;
+    else
+        return x / y + 1;
+} 
+
 void file_read(char *filename, float* objects, int numObjs, int numCoords)
 {
     std::ifstream input(filename);
@@ -74,12 +82,15 @@ __global__ void findClosest(
         change[objId] = 1;
 }
 
-__global__ void findDelta(int* change, int numObj, int* total)
+__global__ void findDelta(int* change, int numObj)
 {
     extern __shared__ int sdata[];
     unsigned int tid = threadIdx.x;
     unsigned int i = blockIdx.x* (blockDim.x * 2) + threadIdx.x;
-    sdata[tid] = change[i] + change[i+blockDim.x];
+    if(i >= numObj) return;
+    sdata[tid] = change[i];
+    if(i + blockDim.x < numObj)
+        sdata[tid] += change[i + blockDim.x];
     __syncthreads();
     for (unsigned int s=blockDim.x / 2; s>0; s>>=1) 
     {
@@ -89,7 +100,7 @@ __global__ void findDelta(int* change, int numObj, int* total)
         }
         __syncthreads();
     }
-    if (tid == 0) total[blockIdx.x] = sdata[0];
+    if (tid == 0) change[blockIdx.x] = sdata[0];
 }
 
 int main(int argc, char **argv) {
@@ -152,7 +163,7 @@ int main(int argc, char **argv) {
     /* start the timer for the core computation -----------------------------*/
     /* membership: the cluster id for each data object */ 
     int thread_count = 1024;
-    int block_count = (numObjs / thread_count) + 1;
+    int block_count = upperbound(numObjs, thread_count);
 
     newClusterSize = new int[numClusters];
     change_h = new int[numObjs];
@@ -165,7 +176,12 @@ int main(int argc, char **argv) {
         cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice);
         findClosest<<<block_count,thread_count>>>(objects_d, clusters_d, membership_d, change_d, numObjs, numClusters, numCoords);
 
-        cudaMemcpy(change_h, change_d, sizeof(int) * numObjs, cudaMemcpyDeviceToHost);
+        //cudaMemcpy(change_h, change_d, sizeof(int) * numObjs, cudaMemcpyDeviceToHost);
+        for(int i = numObjs; i > 0; i =  upperbound(i, 2 * thread_count))
+        {
+            int blocks = upperbound(i / (thread_count * 2));
+            findDelta<<<blocks,thread_count, thread_count * sizeof(int)>>>(change_d, i);
+        }
         cudaMemcpy(membership_h, membership_d, sizeof(int) * numObjs, cudaMemcpyDeviceToHost);
         memset(clusters_h, 0, sizeof(float) * numCoords * numClusters);
         for(int i = 0; i < numObjs; i++)
