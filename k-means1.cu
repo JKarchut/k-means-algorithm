@@ -7,6 +7,7 @@
 #include <unistd.h>     /* getopt() */
 #include <fstream>
 #include <cfloat>
+
 /*---< usage() >------------------------------------------------------------*/
 void usage(char *argv0, float threshold) {
     char *help =
@@ -15,7 +16,7 @@ void usage(char *argv0, float threshold) {
         "       -k num_clusters: number of clusters (K must > 1)\n"
         "       -t threshold   : threshold value (default %.4f)\n"
         "       -n dim_number  : number of dimensions\n"
-        "       -N num_objects : number of objects\n"
+        "       -N num_objects : number of objects\n";
     fprintf(stderr, help, argv0, threshold);
     exit(-1);
 }
@@ -25,7 +26,7 @@ void read_file(char *filename, float* objects, int numObjs, int numCoords)
     std::ifstream input(filename);
     int id;
     int i = 0;
-    int j = 0
+    int j = 0;
     while(input >> id)
     {
         while(j < numCoords)
@@ -44,7 +45,7 @@ __global__ void findClosest(
     float *centers, 
     int *membership,  
     int *change, 
-    int numObj
+    int numObj,
     int numClust, 
     int numCoord)
 {
@@ -98,14 +99,13 @@ int main(int argc, char **argv) {
     float *objects_d, *clusters_d;
     int *membership_d, *change_d, *change_h, *newClusterSize, *membership_h;
     float   threshold;
-    double  timing, io_timing, clustering_timing;
 
     /* some default values */
     threshold   = 0.001;
     numClusters = 0;
     filename    = NULL;
     numCoords   = 0;
-    numObjs     = 0
+    numObjs     = 0;
     
     while ( (opt=getopt(argc,argv,"i:n:t:N:n"))!= EOF) {
         switch (opt) {
@@ -147,10 +147,6 @@ int main(int argc, char **argv) {
     cudaMalloc(&change_d, sizeof(int) * numObjs);
     cudaMemcpy(objects_d, objects_h, numObjs * numCoords * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemset(membership_d, -1, sizeof(int) * numObjs);
-
-    timing            = wtime();
-    io_timing         = timing - io_timing;
-    clustering_timing = timing;
 
     /* start the timer for the core computation -----------------------------*/
     /* membership: the cluster id for each data object */ 
@@ -199,24 +195,11 @@ int main(int argc, char **argv) {
     cudaFree(membership_d);
     cudaFree(clusters_d);
 
-
-    timing            = wtime();
-    clustering_timing = timing - clustering_timing;
-
-    /* output: the coordinates of the cluster centres ----------------------*/
-    file_write(filename, numClusters, numObjs, numCoords, clusters,
-               membership, verbose);
-
-
-    io_timing += wtime() - timing;
     printf("\nPerforming **** Regular Kmeans (sequential version) ****\n");
     printf("Input file:     %s\n", filename);
     printf("numObjs       = %d\n", numObjs);
     printf("numCoords     = %d\n", numCoords);
     printf("numClusters   = %d\n", numClusters);
     printf("threshold     = %.4f\n", threshold);
-    printf("I/O time           = %10.4f sec\n", io_timing);
-    printf("Computation timing = %10.4f sec\n", clustering_timing);
-
     return(0);
 }
