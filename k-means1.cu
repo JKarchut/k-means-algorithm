@@ -112,6 +112,7 @@ __global__ void findDelta(int* change, int numObj)
         }
         __syncthreads();
     }
+    printf("%d \n", sdata[0]);
     if (tid == 0) change[blockIdx.x] = sdata[0];
 }
 
@@ -173,9 +174,7 @@ __global__ void divideCenters(float *center, int *centerSize, float *old_center,
             center[i * numCoords + x] /= centerSize[i];
             old_center[i * numCoords + x] = center[i * numCoords + x];
         }
-        printf("%f ", old_center[i * numCoords + x]);
     }
-    printf("\n");
 }
 
 int main(int argc, char **argv) {
