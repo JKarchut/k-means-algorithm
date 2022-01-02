@@ -256,7 +256,7 @@ int main(int argc, char **argv) {
         int sharedMemSize = sizeof(int) * thread_count + sizeof(float) * thread_count * numCoords + numClusters * sizeof(int) + numClusters * numCoords * sizeof(float);
         updateCenters<<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, clusters_d, clusterSize_d, numObjs, numCoords, numClusters);
         gpuErrchk( cudaPeekAtLastError());
-        divideCenters<<<1, numClusters>>>(clusters_d, newClusterSize, numClusters, numCoords);
+        divideCenters<<<1, numClusters>>>(clusters_d, clusterSize_d, numClusters, numCoords);
         gpuErrchk( cudaPeekAtLastError());
         delta /= numObjs;
     }while(delta > threshold);
