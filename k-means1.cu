@@ -265,6 +265,7 @@ int main(int argc, char **argv) {
         gpuErrchk( cudaPeekAtLastError());
         divideCenters<<<1, numClusters>>>(temp_d, clusterSize_d, clusters_d , numClusters, numCoords);
         gpuErrchk( cudaPeekAtLastError());
+        std:: cout << delta << std::endl;
         delta /= numObjs;
         std::cout << delta << std::endl;
     }while(delta > threshold);
