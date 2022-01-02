@@ -136,7 +136,7 @@ __global__ void updateCenters(
         if(tid < numCenters)
             centers_sum_temp[tid + x] = 0;
     }
-	int *center_assingment = (int*)&centers_sum_temp[numCoords * blockDim.x];
+	int *center_assingment = (int*)&centers_sum_temp[numCoords * numCenters];
     int *centers_size_temp = (int*)&center_assingment[blockDim.x];
 	center_assingment[tid] = membership[i];
     if(tid < numCenters)
@@ -255,7 +255,7 @@ int main(int argc, char **argv) {
         }
         cudaMemcpy(&delta, change_d, sizeof(int), cudaMemcpyDeviceToHost);
         cudaMemset(clusters_d, 0, sizeof(float) * numCoords * numClusters);
-        int sharedMemSize = sizeof(int) * thread_count + sizeof(float) * thread_count * numCoords + numClusters * sizeof(int) + numClusters * numCoords * sizeof(float);
+        int sharedMemSize = (sizeof(int) * thread_count) + (sizeof(float) * thread_count * numCoords) + (numClusters * sizeof(int)) + (numClusters * numCoords * sizeof(float));
         updateCenters<<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, clusters_d, clusterSize_d, numObjs, numCoords, numClusters);
         gpuErrchk( cudaPeekAtLastError());
         divideCenters<<<1, numClusters>>>(clusters_d, clusterSize_d, numClusters, numCoords);
