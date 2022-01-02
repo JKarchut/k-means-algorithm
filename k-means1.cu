@@ -260,15 +260,13 @@ int main(int argc, char **argv) {
         }
         cudaMemcpy(&temp_delta, change_d, sizeof(int), cudaMemcpyDeviceToHost);
         delta = temp_delta;
-        cudaMemset(clusters_d, 0, sizeof(float) * numCoords * numClusters);
+        cudaMemset(temp_d, 0, sizeof(float) * numCoords * numClusters);
         int sharedMemSize = (sizeof(int) * thread_count) + (sizeof(float) * thread_count * numCoords) + (numClusters * sizeof(int)) + (numClusters * numCoords * sizeof(float));
         updateCenters<<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, temp_d, clusterSize_d, numObjs, numCoords, numClusters);
         gpuErrchk( cudaPeekAtLastError());
         divideCenters<<<1, numClusters>>>(temp_d, clusterSize_d, clusters_d , numClusters, numCoords);
         gpuErrchk( cudaPeekAtLastError());
-        std:: cout << delta << std::endl;
         delta /= numObjs;
-        std::cout << delta << std::endl;
     }while(delta > threshold);
     gpuErrchk(cudaMemcpy(clusters_h, clusters_d, sizeof(float) * numClusters * numCoords, cudaMemcpyDeviceToHost));
     std::ofstream output("output.txt");
