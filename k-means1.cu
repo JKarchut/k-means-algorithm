@@ -247,7 +247,7 @@ int main(int argc, char **argv) {
     gpuErrchk(cudaMalloc(&temp_d, sizeof(float) * numClusters * numCoords));
     gpuErrchk(cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice));
     do{
-        delta = 0.0;
+        delta[0] = 0.0f;
         findClosest<<<block_count,thread_count>>>(objects_d, clusters_d, membership_d, change_d, numObjs, numClusters, numCoords);
         gpuErrchk( cudaPeekAtLastError());
         
