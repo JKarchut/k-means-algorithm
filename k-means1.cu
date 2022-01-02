@@ -121,16 +121,16 @@ __global__ void updateCenters(
 	if (i >= numObjects) return;
 	int tid = threadIdx.x;
     int numObj = numCoords * blockDim.x;
-	float s_data = (float*)s;
-    float centers_sum_temp = (float*)&s_data[numCoords * blockDim.x];
+	float *s_data = (float*)s;
+    float *centers_sum_temp = (float*)&s_data[numCoords * blockDim.x];
     for(int x = 0; x < numCoords; x++)
     {
         s_data[tid + x]= objects[i * numCoords + x];
         if(tid < numCenters)
             centers_sum_temp[tid + x] = 0;
     }
-	int center_assingment = (int*)&centers_sum_temp[numCoords * blockDim.x];
-    int centers_size_temp = (int*)&center_assigment[blockDim.x];
+	int *center_assingment = (int*)&centers_sum_temp[numCoords * blockDim.x];
+    int *centers_size_temp = (int*)&center_assingment[blockDim.x];
 	center_assingment[tid] = membership[i];
     if(tid < numCenters)
         centers_size_temp[tid] = 0;
