@@ -242,12 +242,13 @@ int main(int argc, char **argv) {
     newClusterSize = new int[numClusters];
     change_h = new int[numObjs];
     membership_h = new int[numObjs];
-    float *delta = new float[1];
+    float delta;
+    int temp_delta;
     float *temp_d;
     gpuErrchk(cudaMalloc(&temp_d, sizeof(float) * numClusters * numCoords));
     gpuErrchk(cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice));
     do{
-        delta[0] = 0.0f;
+        delta = 0.0;
         findClosest<<<block_count,thread_count>>>(objects_d, clusters_d, membership_d, change_d, numObjs, numClusters, numCoords);
         gpuErrchk( cudaPeekAtLastError());
         
@@ -257,7 +258,8 @@ int main(int argc, char **argv) {
             findDelta<<<blocks,thread_count, thread_count * sizeof(int)>>>(change_d, i);
             gpuErrchk( cudaPeekAtLastError());
         }
-        cudaMemcpy(&delta, change_d, sizeof(int), cudaMemcpyDeviceToHost);
+        cudaMemcpy(&temp_delta, change_d, sizeof(int), cudaMemcpyDeviceToHost);
+        delta = temp_delta;
         cudaMemset(clusters_d, 0, sizeof(float) * numCoords * numClusters);
         int sharedMemSize = (sizeof(int) * thread_count) + (sizeof(float) * thread_count * numCoords) + (numClusters * sizeof(int)) + (numClusters * numCoords * sizeof(float));
         updateCenters<<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, temp_d, clusterSize_d, numObjs, numCoords, numClusters);
@@ -265,9 +267,9 @@ int main(int argc, char **argv) {
         divideCenters<<<1, numClusters>>>(temp_d, clusterSize_d, clusters_d , numClusters, numCoords);
         gpuErrchk( cudaPeekAtLastError());
         std:: cout << delta << std::endl;
-        delta[0] /= numObjs;
-        std::cout << delta[0] << std::endl;
-    }while(delta[0] > threshold);
+        delta /= numObjs;
+        std::cout << delta << std::endl;
+    }while(delta > threshold);
     gpuErrchk(cudaMemcpy(clusters_h, clusters_d, sizeof(float) * numClusters * numCoords, cudaMemcpyDeviceToHost));
     std::ofstream output("output.txt");
     for(int i = 0; i < numClusters; i++)
