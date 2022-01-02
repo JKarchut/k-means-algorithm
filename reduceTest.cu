@@ -15,7 +15,11 @@ __global__ void findDelta(int* change, int numObj)
     extern __shared__ int sdata[];
     unsigned int tid = threadIdx.x;
     unsigned int i = blockIdx.x* (blockDim.x * 2) + threadIdx.x;
-    if(i >= numObj) return;
+    if(i >= numObj) 
+    {
+        sdata[tid] = 0;
+        return;
+    }
     sdata[tid] = change[i];
     if(i + blockDim.x < numObj)
         sdata[tid] += change[i + blockDim.x];
@@ -43,7 +47,7 @@ int main()
     cudaMemcpy(table_d, table, sizeof(int) * N, cudaMemcpyHostToDevice);
 
     int thread_count = 1024;
-    for(int i = N; i > 0; i =  upperbound(i, 2 * thread_count))
+    for(int i = N; i > 1; i =  upperbound(i, 2 * thread_count))
     {
         int blocks = upperbound(i, (thread_count * 2));
         findDelta<<<blocks,thread_count, thread_count * sizeof(int)>>>(table_d, i);
@@ -51,6 +55,6 @@ int main()
     int ans;
     cudaMemcpy(&ans, table_d, sizeof(int), cudaMemcpyDeviceToHost);
     if(ans != N)
-        std::cout<< "oh no \n";
+        std::cout<< ans << "oh no \n";
     return 0;
 }

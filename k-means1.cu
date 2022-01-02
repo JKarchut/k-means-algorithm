@@ -87,7 +87,11 @@ __global__ void findDelta(int* change, int numObj)
     extern __shared__ int sdata[];
     unsigned int tid = threadIdx.x;
     unsigned int i = blockIdx.x* (blockDim.x * 2) + threadIdx.x;
-    if(i >= numObj) return;
+    if(i >= numObj) 
+    {
+        sdata[tid] = 0;
+        return;
+    }
     sdata[tid] = change[i];
     if(i + blockDim.x < numObj)
         sdata[tid] += change[i + blockDim.x];
@@ -101,6 +105,59 @@ __global__ void findDelta(int* change, int numObj)
         __syncthreads();
     }
     if (tid == 0) change[blockIdx.x] = sdata[0];
+}
+
+__global__ void updateCenters(
+    float *objects, 
+    int *membership, 
+    float *centers, 
+    int *center_size, 
+    int numObjects, 
+    int numCoords,
+    int numCenters)
+{
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx >= numObjects) return;
+	int tid = threadIdx.x;
+	__shared__ float s_data[numCoords * blockDim.x];
+    for(int x = 0; x < numCoords; x++)
+    {
+        s_data[tid + x]= objects[i * numCoords + x];
+    }
+	__shared__ int center_assingment[blockDim.x];
+	center_assingment[tid] = membership[i];
+
+	__syncthreads();
+
+	if(tid == 0)
+	{
+		float centers_sum_temp[numCenters * numCoords]={0};
+		int centers_size_temp[numCenters]={0};
+
+		for(int j=0; j< blockDim.x; ++j)
+		{
+			int clust_id = center_assingment[j];
+            for(int x = 0; x < numCoords; x++)
+			    centers_sum_temp[clust_id + x]+=s_datapoints[j * numCoords + x];
+			centers_size_temp[clust_id]+=1;
+		}
+
+		for(int z=0; z < numCenters; z++)
+		{
+            for(int x = 0; x < numCoords; x++)
+			    atomicAdd(&centers[z * numCoords + x],centers_sum_temp[z * numCoords + x]);
+			atomicAdd(&centers_size[z],centers_size_temp[z]);
+		}
+	}
+}
+
+__global__ divideCenters(float *center, int *centerSize, int numCenters, int numCoords)
+{
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+    for(int x = 0; x < numCoords; x++)
+    {
+        center[i * numCoords + x] /= centerSize[i];
+    }
 }
 
 int main(int argc, char **argv) {
@@ -153,6 +210,8 @@ int main(int argc, char **argv) {
     {
         clusters_h[i] = objects_h[i];
     }
+    int *clusterSize_d;
+    cudaMalloc(&clusterSize_d, numClusters * sizeof(int));
     cudaMalloc(&objects_d, numObjs * numCoords * sizeof(float));
     cudaMalloc(&clusters_d, numClusters * numCoords * sizeof(float));
     cudaMalloc(&membership_d, sizeof(int) * numObjs);
@@ -160,8 +219,6 @@ int main(int argc, char **argv) {
     cudaMemcpy(objects_d, objects_h, numObjs * numCoords * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemset(membership_d, -1, sizeof(int) * numObjs);
 
-    /* start the timer for the core computation -----------------------------*/
-    /* membership: the cluster id for each data object */ 
     int thread_count = 1024;
     int block_count = upperbound(numObjs, thread_count);
 
@@ -169,44 +226,25 @@ int main(int argc, char **argv) {
     change_h = new int[numObjs];
     membership_h = new int[numObjs];
     float delta;
-    
+    float *temp_d;
+    cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice);
     do{
         delta = 0.0;
-        memset(newClusterSize, 0, sizeof(int) * numClusters);
-        cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice);
         findClosest<<<block_count,thread_count>>>(objects_d, clusters_d, membership_d, change_d, numObjs, numClusters, numCoords);
 
-        //cudaMemcpy(change_h, change_d, sizeof(int) * numObjs, cudaMemcpyDeviceToHost);
-        for(int i = numObjs; i > 0; i =  upperbound(i, 2 * thread_count))
+        for(int i = numObjs; i > 1; i =  upperbound(i, 2 * thread_count))
         {
-            int blocks = upperbound(i / (thread_count * 2));
+            int blocks = upperbound(i, thread_count * 2);
             findDelta<<<blocks,thread_count, thread_count * sizeof(int)>>>(change_d, i);
         }
-        cudaMemcpy(membership_h, membership_d, sizeof(int) * numObjs, cudaMemcpyDeviceToHost);
-        memset(clusters_h, 0, sizeof(float) * numCoords * numClusters);
-        for(int i = 0; i < numObjs; i++)
-        {
-            delta += change_h[i];
-            newClusterSize[membership_h[i]]++;
-            for(int j = 0; j < numCoords; j++)
-            {
-                clusters_h[membership_h[i] * numCoords + j] += objects_h[i * numCoords + j];
-            }
-        }
-        for(int i = 0; i < numClusters; i++)
-        {
-            for(int j = 0; j < numCoords; j++)
-            {
-                if(newClusterSize[i] > 0)
-                {
-                    clusters_h[i * numCoords + j] /= newClusterSize[i];
-                }
-                std::cout<< clusters_h[i * numCoords + j] << ' ';
-            }
-            std::cout << std::endl;
-        }
+        cudaMemcpy(&delta, change_d, sizeof(int), cudaMemcpyDeviceToHost);
+        cudaMemset(clusters_d, 0, sizeof(float) * numCoords * numClusters);
+        int sharedMemSize = sizeof(int) * thread_count + sizeof(float) * thread_count * numCoords;
+        updateCenters<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, clusters_d, clustersSize_d, numObjs, numCoords, numClusters);
+        divideCenters<<<1, numClusters>>>(clusters_d, newClusterSize, numClusters, numCoords);
         delta /= numObjs;
     }while(delta > threshold);
+    cudaMemcpy(clusters_h, clusters_d, sizeof(float) * numClusters * numCoords, cudaMemcpyDeviceToHost);
     std::ofstream output("output.txt");
     for(int i = 0; i < numClusters; i++)
     {
