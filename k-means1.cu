@@ -163,13 +163,17 @@ __global__ void updateCenters(
 	}
 }
 
-__global__ void divideCenters(float *center, int *centerSize, int numCenters, int numCoords)
+__global__ void divideCenters(float *center, int *centerSize, float *old_center, int numCenters, int numCoords)
 {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
     for(int x = 0; x < numCoords; x++)
     {
-        center[i * numCoords + x] /= centerSize[i];
-        printf("%f ", center[i * numCoords + x]);
+        if(centerSize[i] != 0)
+        {
+            center[i * numCoords + x] /= centerSize[i];
+            old_center[i * numCoords + x] = center[i * numCoords + x];
+        }
+        printf("%f ", old_center[i * numCoords + x]);
     }
     printf("\n");
 }
@@ -241,6 +245,7 @@ int main(int argc, char **argv) {
     membership_h = new int[numObjs];
     float delta;
     float *temp_d;
+    gpuErrchk(cudaMalloc(&temp_d, sizeof(float) * numClusters * numCoords));
     gpuErrchk(cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice));
     do{
         delta = 0.0;
@@ -256,9 +261,9 @@ int main(int argc, char **argv) {
         cudaMemcpy(&delta, change_d, sizeof(int), cudaMemcpyDeviceToHost);
         cudaMemset(clusters_d, 0, sizeof(float) * numCoords * numClusters);
         int sharedMemSize = (sizeof(int) * thread_count) + (sizeof(float) * thread_count * numCoords) + (numClusters * sizeof(int)) + (numClusters * numCoords * sizeof(float));
-        updateCenters<<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, clusters_d, clusterSize_d, numObjs, numCoords, numClusters);
+        updateCenters<<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, temp_d, clusterSize_d, numObjs, numCoords, numClusters);
         gpuErrchk( cudaPeekAtLastError());
-        divideCenters<<<1, numClusters>>>(clusters_d, clusterSize_d, numClusters, numCoords);
+        divideCenters<<<1, numClusters>>>(temp_d, clusterSize_d, clusters_d , numClusters, numCoords);
         gpuErrchk( cudaPeekAtLastError());
         delta /= numObjs;
     }while(delta > threshold);
