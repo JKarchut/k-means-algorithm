@@ -117,23 +117,26 @@ __global__ void updateCenters(
     int numCenters)
 {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
-	if (idx >= numObjects) return;
+	if (i >= numObjects) return;
 	int tid = threadIdx.x;
-	__shared__ float s_data[numCoords * blockDim.x];
+	extern __shared__ float s_data[numCoords * blockDim.x];
+    extern __shared__ float centers_sum_temp[numCoords * blockDim.x];
     for(int x = 0; x < numCoords; x++)
     {
         s_data[tid + x]= objects[i * numCoords + x];
+        if(tid < numCenters)
+            centers_sum_temp[tid + x] = 0;
     }
-	__shared__ int center_assingment[blockDim.x];
+	extern __shared__ int center_assingment[blockDim.x];
+    extern __shared__ int centers_size_temp[numCenters];
 	center_assingment[tid] = membership[i];
+    if(tid < numCenters)
+        centers_size_temp[tid] = 0;
 
 	__syncthreads();
 
 	if(tid == 0)
 	{
-		float centers_sum_temp[numCenters * numCoords]={0};
-		int centers_size_temp[numCenters]={0};
-
 		for(int j=0; j< blockDim.x; ++j)
 		{
 			int clust_id = center_assingment[j];
@@ -239,7 +242,7 @@ int main(int argc, char **argv) {
         }
         cudaMemcpy(&delta, change_d, sizeof(int), cudaMemcpyDeviceToHost);
         cudaMemset(clusters_d, 0, sizeof(float) * numCoords * numClusters);
-        int sharedMemSize = sizeof(int) * thread_count + sizeof(float) * thread_count * numCoords;
+        int sharedMemSize = sizeof(int) * thread_count + sizeof(float) * thread_count * numCoords + numClusters * sizeof(int) + numClusters * numCoords * sizeof(float);
         updateCenters<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, clusters_d, clustersSize_d, numObjs, numCoords, numClusters);
         divideCenters<<<1, numClusters>>>(clusters_d, newClusterSize, numClusters, numCoords);
         delta /= numObjs;
