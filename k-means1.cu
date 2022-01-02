@@ -176,8 +176,9 @@ __global__ void divideCenters(float *center, int *centerSize, float *old_center,
             center[i * numCoords + x] /= centerSize[i];
             old_center[i * numCoords + x] = center[i * numCoords + x];
         }
-        printf("%f \n", old_center[i * numCoords]);
+        
     }
+    printf("%f \n", old_center[i * numCoords]);
     centerSize[i] = 0;
 }
 
