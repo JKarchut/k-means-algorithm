@@ -112,8 +112,10 @@ __global__ void findDelta(int* change, int numObj)
         }
         __syncthreads();
     }
-    printf("%d \n", sdata[0]);
-    if (tid == 0) change[blockIdx.x] = sdata[0];
+    if (tid == 0){
+        printf("%d \n", sdata[0]);
+        change[blockIdx.x] = sdata[0];
+    } 
 }
 
 __global__ void updateCenters(
@@ -175,6 +177,7 @@ __global__ void divideCenters(float *center, int *centerSize, float *old_center,
             old_center[i * numCoords + x] = center[i * numCoords + x];
         }
     }
+    centerSize[i] = 0;
 }
 
 int main(int argc, char **argv) {
@@ -235,6 +238,7 @@ int main(int argc, char **argv) {
     gpuErrchk(cudaMalloc(&change_d, sizeof(int) * numObjs));
     gpuErrchk(cudaMemcpy(objects_d, objects_h, numObjs * numCoords * sizeof(float), cudaMemcpyHostToDevice));
     gpuErrchk(cudaMemset(membership_d, -1, sizeof(int) * numObjs));
+    gpuErrchk(cudaMemset(clusterSize_d, 0, sizeof(int) * numClusters));
 
     int thread_count = 1024;
     int block_count = upperbound(numObjs, thread_count);
