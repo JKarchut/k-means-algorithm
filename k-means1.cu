@@ -176,6 +176,7 @@ __global__ void divideCenters(float *center, int *centerSize, float *old_center,
             center[i * numCoords + x] /= centerSize[i];
             old_center[i * numCoords + x] = center[i * numCoords + x];
         }
+        printf("%f \n", old_center[i * numCoords]);
     }
     centerSize[i] = 0;
 }
@@ -271,7 +272,7 @@ int main(int argc, char **argv) {
         divideCenters<<<1, numClusters>>>(temp_d, clusterSize_d, clusters_d , numClusters, numCoords);
         gpuErrchk( cudaPeekAtLastError());
         delta /= numObjs;
-    }while(delta > threshold);
+    }while(/*delta > threshold*/false);
     gpuErrchk(cudaMemcpy(clusters_h, clusters_d, sizeof(float) * numClusters * numCoords, cudaMemcpyDeviceToHost));
     std::ofstream output("output.txt");
     for(int i = 0; i < numClusters; i++)
