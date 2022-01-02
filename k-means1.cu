@@ -8,8 +8,16 @@
 #include <unistd.h>     /* getopt() */
 #include <fstream>
 #include <cfloat>
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess) 
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
 
-/*---< usage() >------------------------------------------------------------*/
 void usage(char *argv0, float threshold) {
     char *help =
         "Usage: %s [switches] -i filename -n num_clusters\n"
@@ -215,13 +223,13 @@ int main(int argc, char **argv) {
         clusters_h[i] = objects_h[i];
     }
     int *clusterSize_d;
-    cudaMalloc(&clusterSize_d, numClusters * sizeof(int));
-    cudaMalloc(&objects_d, numObjs * numCoords * sizeof(float));
-    cudaMalloc(&clusters_d, numClusters * numCoords * sizeof(float));
-    cudaMalloc(&membership_d, sizeof(int) * numObjs);
-    cudaMalloc(&change_d, sizeof(int) * numObjs);
-    cudaMemcpy(objects_d, objects_h, numObjs * numCoords * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemset(membership_d, -1, sizeof(int) * numObjs);
+    gpuErrchk(cudaMalloc(&clusterSize_d, numClusters * sizeof(int)));
+    gpuErrchk(cudaMalloc(&objects_d, numObjs * numCoords * sizeof(float)));
+    gpuErrchk(cudaMalloc(&clusters_d, numClusters * numCoords * sizeof(float)));
+    gpuErrchk(cudaMalloc(&membership_d, sizeof(int) * numObjs));
+    gpuErrchk(cudaMalloc(&change_d, sizeof(int) * numObjs));
+    gpuErrchk(cudaMemcpy(objects_d, objects_h, numObjs * numCoords * sizeof(float), cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemset(membership_d, -1, sizeof(int) * numObjs));
 
     int thread_count = 1024;
     int block_count = upperbound(numObjs, thread_count);
@@ -231,24 +239,28 @@ int main(int argc, char **argv) {
     membership_h = new int[numObjs];
     float delta;
     float *temp_d;
-    cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice);
+    gpuErrchk(cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice));
     do{
         delta = 0.0;
         findClosest<<<block_count,thread_count>>>(objects_d, clusters_d, membership_d, change_d, numObjs, numClusters, numCoords);
-
+        gpuErrchk( cudaPeekAtLastError());
+        
         for(int i = numObjs; i > 1; i =  upperbound(i, 2 * thread_count))
         {
             int blocks = upperbound(i, thread_count * 2);
             findDelta<<<blocks,thread_count, thread_count * sizeof(int)>>>(change_d, i);
+            gpuErrchk( cudaPeekAtLastError());
         }
         cudaMemcpy(&delta, change_d, sizeof(int), cudaMemcpyDeviceToHost);
         cudaMemset(clusters_d, 0, sizeof(float) * numCoords * numClusters);
         int sharedMemSize = sizeof(int) * thread_count + sizeof(float) * thread_count * numCoords + numClusters * sizeof(int) + numClusters * numCoords * sizeof(float);
-        updateCenters<<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, clusters_d, clustersSize_d, numObjs, numCoords, numClusters);
+        updateCenters<<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, clusters_d, clusterSize_d, numObjs, numCoords, numClusters);
+        gpuErrchk( cudaPeekAtLastError());
         divideCenters<<<1, numClusters>>>(clusters_d, newClusterSize, numClusters, numCoords);
+        gpuErrchk( cudaPeekAtLastError());
         delta /= numObjs;
     }while(delta > threshold);
-    cudaMemcpy(clusters_h, clusters_d, sizeof(float) * numClusters * numCoords, cudaMemcpyDeviceToHost);
+    gpuErrchk(cudaMemcpy(clusters_h, clusters_d, sizeof(float) * numClusters * numCoords, cudaMemcpyDeviceToHost));
     std::ofstream output("output.txt");
     for(int i = 0; i < numClusters; i++)
     {
