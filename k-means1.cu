@@ -244,7 +244,7 @@ int main(int argc, char **argv) {
         cudaMemcpy(&delta, change_d, sizeof(int), cudaMemcpyDeviceToHost);
         cudaMemset(clusters_d, 0, sizeof(float) * numCoords * numClusters);
         int sharedMemSize = sizeof(int) * thread_count + sizeof(float) * thread_count * numCoords + numClusters * sizeof(int) + numClusters * numCoords * sizeof(float);
-        updateCenters<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, clusters_d, clustersSize_d, numObjs, numCoords, numClusters);
+        updateCenters<<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, clusters_d, clustersSize_d, numObjs, numCoords, numClusters);
         divideCenters<<<1, numClusters>>>(clusters_d, newClusterSize, numClusters, numCoords);
         delta /= numObjs;
     }while(delta > threshold);
