@@ -120,7 +120,6 @@ __global__ void updateCenters(
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	if (i >= numObjects) return;
 	int tid = threadIdx.x;
-    int numObj = numCoords * blockDim.x;
 	float *s_data = (float*)s;
     float *centers_sum_temp = (float*)&s_data[numCoords * blockDim.x];
     for(int x = 0; x < numCoords; x++)
@@ -143,7 +142,7 @@ __global__ void updateCenters(
 		{
 			int clust_id = center_assingment[j];
             for(int x = 0; x < numCoords; x++)
-			    centers_sum_temp[clust_id + x]+=s_datapoints[j * numCoords + x];
+			    centers_sum_temp[clust_id + x]+=s_data[j * numCoords + x];
 			centers_size_temp[clust_id]+=1;
 		}
 
@@ -151,12 +150,12 @@ __global__ void updateCenters(
 		{
             for(int x = 0; x < numCoords; x++)
 			    atomicAdd(&centers[z * numCoords + x],centers_sum_temp[z * numCoords + x]);
-			atomicAdd(&centers_size[z],centers_size_temp[z]);
+			atomicAdd(&center_size[z],centers_size_temp[z]);
 		}
 	}
 }
 
-__global__ divideCenters(float *center, int *centerSize, int numCenters, int numCoords)
+__global__ void divideCenters(float *center, int *centerSize, int numCenters, int numCoords)
 {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
     for(int x = 0; x < numCoords; x++)
