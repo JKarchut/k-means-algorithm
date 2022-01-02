@@ -242,7 +242,7 @@ int main(int argc, char **argv) {
     newClusterSize = new int[numClusters];
     change_h = new int[numObjs];
     membership_h = new int[numObjs];
-    float delta;
+    float *delta = new float[1];
     float *temp_d;
     gpuErrchk(cudaMalloc(&temp_d, sizeof(float) * numClusters * numCoords));
     gpuErrchk(cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice));
@@ -265,9 +265,9 @@ int main(int argc, char **argv) {
         divideCenters<<<1, numClusters>>>(temp_d, clusterSize_d, clusters_d , numClusters, numCoords);
         gpuErrchk( cudaPeekAtLastError());
         std:: cout << delta << std::endl;
-        delta /= numObjs;
-        std::cout << delta << std::endl;
-    }while(delta > threshold);
+        delta[0] /= numObjs;
+        std::cout << delta[0] << std::endl;
+    }while(delta[0] > threshold);
     gpuErrchk(cudaMemcpy(clusters_h, clusters_d, sizeof(float) * numClusters * numCoords, cudaMemcpyDeviceToHost));
     std::ofstream output("output.txt");
     for(int i = 0; i < numClusters; i++)
