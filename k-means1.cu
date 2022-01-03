@@ -135,9 +135,9 @@ __global__ void updateCenters(
     float *centers_sum_temp = (float*)&s_data[numCoords * blockDim.x];
     for(int x = 0; x < numCoords; x++)
     {
-        s_data[tid + x]= objects[i * numCoords + x];
+        s_data[tid * numCoords + x]= objects[i * numCoords + x];
         if(tid < numCenters)
-            centers_sum_temp[tid + x] = 0;
+            centers_sum_temp[tid * numCoords + x] = 0;
     }
 	int *center_assingment = (int*)&centers_sum_temp[numCoords * numCenters];
     int *centers_size_temp = (int*)&center_assingment[blockDim.x];
@@ -149,11 +149,11 @@ __global__ void updateCenters(
 
 	if(tid == 0)
 	{
-		for(int j=0; j< blockDim.x; ++j)
+		for(int j = 0; j < blockDim.x; j++)
 		{
 			int clust_id = center_assingment[j];
             for(int x = 0; x < numCoords; x++)
-			    centers_sum_temp[clust_id + x]+=s_data[j * numCoords + x];
+			    centers_sum_temp[clust_id * numCoords + x]+=s_data[j * numCoords + x];
 			centers_size_temp[clust_id]+=1;
 		}
 
@@ -176,7 +176,6 @@ __global__ void divideCenters(float *center, int *centerSize, float *old_center,
             center[i * numCoords + x] /= centerSize[i];
             old_center[i * numCoords + x] = center[i * numCoords + x];
         }
-        
     }
     printf("%f \n", old_center[i * numCoords]);
     centerSize[i] = 0;
