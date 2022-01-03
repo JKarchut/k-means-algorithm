@@ -188,6 +188,13 @@ __global__ void divideCenters(float *center, int *centerSize, float *old_center,
     centerSize[i] = 0;
 }
 
+double GetElapsed(struct timeval begin, struct timeval end)
+{
+    long seconds = end.tv_sec - begin.tv_sec;
+    long microseconds = end.tv_usec - begin.tv_usec;
+    return (seconds + microseconds*1e-6);
+}
+
 int main(int argc, char **argv) {
     extern char   *optarg;
     int     numClusters, numCoords, numObjs, opt;
@@ -196,8 +203,8 @@ int main(int argc, char **argv) {
     float *objects_d, *clusters_d;
     int *membership_d, *change_d;
     float   threshold;
-
-    /* some default values */
+    struct timeval begin, end;
+    
     threshold   = 0.001;
     numClusters = 0;
     filename    = NULL;
@@ -220,7 +227,6 @@ int main(int argc, char **argv) {
                       break;
         }
     }
-    std::cout << numObjs << ' ' << numCoords << ' ' << numClusters << std::endl;
     if (filename == NULL || numClusters <= 1 || numCoords < 1 || numObjs < 1 || numClusters >= numObjs) usage(argv[0], threshold);
 
     printf("reading data points from file %s\n",filename);
@@ -230,9 +236,11 @@ int main(int argc, char **argv) {
     clusters_h = new float[numClusters * numCoords];
 
     /* read data points from file ------------------------------------------*/
-
+    double io_timing;
+    gettimeofday(&begin, 0);
     file_read(filename, objects_h, numObjs, numCoords);
-
+    gettimeofday(&end, 0);
+    io_timing = GetElapsed(begin,end);
     /* allocate and copy data to device */
     for(int i = 0; i < numCoords * numClusters; i++)
     {
@@ -247,36 +255,47 @@ int main(int argc, char **argv) {
     gpuErrchk(cudaMemcpy(objects_d, objects_h, numObjs * numCoords * sizeof(float), cudaMemcpyHostToDevice));
     gpuErrchk(cudaMemset(membership_d, -1, sizeof(int) * numObjs));
     gpuErrchk(cudaMemset(clusterSize_d, 0, sizeof(int) * numClusters));
-
-    int thread_count = 1024;
-    int block_count = upperbound(numObjs, thread_count);
-
     float delta;
     int temp_delta;
     float *temp_d;
     gpuErrchk(cudaMalloc(&temp_d, sizeof(float) * numClusters * numCoords));
     gpuErrchk(cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice));
+    
+    int thread_count = 1024;
+    int block_count = upperbound(numObjs, thread_count);
+    int sharedMemSize = (sizeof(int) * thread_count) + (sizeof(float) * thread_count * numCoords) + (numClusters * sizeof(int)) + (numClusters * numCoords * sizeof(float));
+    gettimeofday(&begin, 0);
     do{
         delta = 0.0;
+
+        //calculate closest centers
         findClosest<<<block_count,thread_count>>>(objects_d, clusters_d, membership_d, change_d, numObjs, numClusters, numCoords);
         gpuErrchk( cudaPeekAtLastError());
         
+        //find delta
         for(int i = numObjs; i > 1; i =  upperbound(i, 2 * thread_count))
         {
             int blocks = upperbound(i, thread_count * 2);
             findDelta<<<blocks,thread_count, thread_count * sizeof(int)>>>(change_d, i);
             gpuErrchk( cudaPeekAtLastError());
         }
-        cudaMemcpy(&temp_delta, change_d, sizeof(int), cudaMemcpyDeviceToHost);
-        delta = temp_delta;
-        cudaMemset(temp_d, 0, sizeof(float) * numCoords * numClusters);
-        int sharedMemSize = (sizeof(int) * thread_count) + (sizeof(float) * thread_count * numCoords) + (numClusters * sizeof(int)) + (numClusters * numCoords * sizeof(float));
+        gpuErrchk(cudaMemcpy(&temp_delta, change_d, sizeof(int), cudaMemcpyDeviceToHost));
+        gpuErrchk(cudaMemset(temp_d, 0, sizeof(float) * numCoords * numClusters));
+        
+        // calculate new centers sum and centerSize
         updateCenters<<<block_count, thread_count, sharedMemSize>>>(objects_d, membership_d, temp_d, clusterSize_d, numObjs, numCoords, numClusters);
         gpuErrchk( cudaPeekAtLastError());
+        
+        // divide centers sum by size
         divideCenters<<<1, numClusters>>>(temp_d, clusterSize_d, clusters_d, numCoords);
         gpuErrchk( cudaPeekAtLastError());
+        
+        delta = temp_delta;
         delta /= numObjs;
     }while(delta > threshold);
+    gettimeofday(&end, 0);
+    double clustering_timing = GetElapsed(begin,end);
+
     gpuErrchk(cudaMemcpy(clusters_h, clusters_d, sizeof(float) * numClusters * numCoords, cudaMemcpyDeviceToHost));
     std::ofstream output("output.txt");
     for(int i = 0; i < numClusters; i++)
@@ -289,18 +308,25 @@ int main(int argc, char **argv) {
         output << '\n';
     }
     output.close();
+
     free(objects_h);
     free(clusters_h);
+
     cudaFree(objects_d);
     cudaFree(change_d);
     cudaFree(membership_d);
     cudaFree(clusters_d);
+    cudaFree(temp_d);
+    cudaFree(clusterSize_d);
 
-    printf("\nPerforming **** Regular Kmeans (sequential version) ****\n");
+    printf("\nPerforming **** Regular Kmeans (parallel version 1 (centers using reduce)) ****\n");
     printf("Input file:     %s\n", filename);
     printf("numObjs       = %d\n", numObjs);
     printf("numCoords     = %d\n", numCoords);
     printf("numClusters   = %d\n", numClusters);
     printf("threshold     = %.4f\n", threshold);
+
+    printf("I/O time           = %10.4f sec\n", io_timing);
+    printf("Computation timing = %10.4f sec\n", clustering_timing);
     return(0);
 }
