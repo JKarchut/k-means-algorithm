@@ -129,16 +129,23 @@ __global__ void updateCenters(
 {
     extern __shared__ int s[];
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
-	if (i >= numObjects) return;
 	int tid = threadIdx.x;
 	float *s_data = (float*)s;
     float *centers_sum_temp = (float*)&s_data[numCoords * blockDim.x];
     for(int x = 0; x < numCoords; x++)
     {
-        s_data[tid * numCoords + x]= objects[i * numCoords + x];
+        if(i < numObjects)
+        {
+            s_data[tid * numCoords + x]= objects[i * numCoords + x];
+        }
+        else
+        {
+            s_data[tid * numCoords + x] = 0;
+        }
         if(tid < numCenters)
             centers_sum_temp[tid * numCoords + x] = 0;
     }
+    if (i >= numObjects) return;
 	int *center_assingment = (int*)&centers_sum_temp[numCoords * numCenters];
     int *centers_size_temp = (int*)&center_assingment[blockDim.x];
 	center_assingment[tid] = membership[i];
@@ -149,7 +156,7 @@ __global__ void updateCenters(
 
 	if(tid == 0)
 	{
-		for(int j = 0; j < blockDim.x; j++)
+		for(int j = 0; j < blockDim.x && i + j < numObjects; j++)
 		{
 			int clust_id = center_assingment[j];
             for(int x = 0; x < numCoords; x++)
@@ -166,12 +173,12 @@ __global__ void updateCenters(
 	}
 }
 
-__global__ void divideCenters(float *center, int *centerSize, float *old_center, int numCenters, int numCoords)
+__global__ void divideCenters(float *center, int *centerSize, float *old_center, int numCoords)
 {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
-    for(int x = 0; x < numCoords; x++)
+    if(centerSize[i] != 0)
     {
-        if(centerSize[i] != 0)
+        for(int x = 0; x < numCoords; x++)
         {
             center[i * numCoords + x] /= centerSize[i];
             old_center[i * numCoords + x] = center[i * numCoords + x];
@@ -187,7 +194,7 @@ int main(int argc, char **argv) {
     char   *filename;
     float   *objects_h, *clusters_h;
     float *objects_d, *clusters_d;
-    int *membership_d, *change_d, *change_h, *newClusterSize, *membership_h;
+    int *membership_d, *change_d;
     float   threshold;
 
     /* some default values */
@@ -244,9 +251,6 @@ int main(int argc, char **argv) {
     int thread_count = 1024;
     int block_count = upperbound(numObjs, thread_count);
 
-    newClusterSize = new int[numClusters];
-    change_h = new int[numObjs];
-    membership_h = new int[numObjs];
     float delta;
     int temp_delta;
     float *temp_d;
@@ -267,9 +271,9 @@ int main(int argc, char **argv) {
         delta = temp_delta;
         cudaMemset(temp_d, 0, sizeof(float) * numCoords * numClusters);
         int sharedMemSize = (sizeof(int) * thread_count) + (sizeof(float) * thread_count * numCoords) + (numClusters * sizeof(int)) + (numClusters * numCoords * sizeof(float));
-        updateCenters<<<upperbound(numObjs, thread_count), thread_count, sharedMemSize>>>(objects_d, membership_d, temp_d, clusterSize_d, numObjs, numCoords, numClusters);
+        updateCenters<<<block_count, thread_count, sharedMemSize>>>(objects_d, membership_d, temp_d, clusterSize_d, numObjs, numCoords, numClusters);
         gpuErrchk( cudaPeekAtLastError());
-        divideCenters<<<1, numClusters>>>(temp_d, clusterSize_d, clusters_d , numClusters, numCoords);
+        divideCenters<<<1, numClusters>>>(temp_d, clusterSize_d, clusters_d, numCoords);
         gpuErrchk( cudaPeekAtLastError());
         delta /= numObjs;
     }while(delta > threshold);
@@ -288,7 +292,6 @@ int main(int argc, char **argv) {
     free(objects_h);
     free(membership_h);
     free(change_h);
-    free(newClusterSize);
     free(clusters_h);
     cudaFree(objects_d);
     cudaFree(change_d);
