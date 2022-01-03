@@ -290,8 +290,6 @@ int main(int argc, char **argv) {
     }
     output.close();
     free(objects_h);
-    free(membership_h);
-    free(change_h);
     free(clusters_h);
     cudaFree(objects_d);
     cudaFree(change_d);
