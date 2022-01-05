@@ -4,6 +4,7 @@
 #include <string.h>     /* strtok() */
 #include <sys/types.h>  /* open() */
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <unistd.h>     /* getopt() */
 #include <fstream>
