@@ -115,7 +115,6 @@ int seq_kmeans(float **objects,      /* in: [numObjs][numCoords] */
             for (j=0; j<numCoords; j++)
                 newClusters[index][j] += objects[i][j];
         }
-        printf("%f\n",delta);
 
         /* average the sum and replace old cluster center with newClusters */
         for (i=0; i<numClusters; i++) {
@@ -124,7 +123,6 @@ int seq_kmeans(float **objects,      /* in: [numObjs][numCoords] */
                     clusters[i][j] = newClusters[i][j] / newClusterSize[i];
                 newClusters[i][j] = 0.0;   /* set back to 0 */
             }
-            printf("%f \n", clusters[i][0]);
             newClusterSize[i] = 0;   /* set back to 0 */
         }
             
