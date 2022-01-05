@@ -12,7 +12,7 @@ int main(int argc, char** argv)
     std::uniform_real_distribution<double> distribution(-10,10);
     for(int i = 0; i < N; i++)
     {
-        out << i;
+        out << i + 1;
         for(int j = 0; j < n; j++)
         {
             out << ' ' << distribution(generator);
