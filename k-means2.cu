@@ -134,7 +134,7 @@ __global__ void updateCenters(
     int numCenters)
 {
     extern __shared__ float data[];
-    int *memb_shared = (*int)&data[blockDim.x * numCoords]; 
+    int *memb_shared = (int*)&data[blockDim.x * numCoords]; 
     unsigned int tid = threadIdx.x;
     unsigned int dim = threadIdx.y;
     unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -142,7 +142,7 @@ __global__ void updateCenters(
     {
         return;
     }
-    sdata[tid * numCoords + dim] = objects[objects_ordered[i] * numCoords + dim];
+    data[tid * numCoords + dim] = objects[objects_ordered[i] * numCoords + dim];
     if(dim == 0)
     {
         memb_shared[tid] = membership_ordered[i];
@@ -159,9 +159,9 @@ __global__ void updateCenters(
             sizeTemp++;
             if(cur_memb != memb_shared[tid + x])
             {
-                atomicAdd(&centers[cur_memb * numCoords + dim], sumTemp[cur_memb * numCoords + dim]);
+                atomicAdd(&centers[cur_memb * numCoords + dim], sumTemp);
                 if(dim == 0)
-			        atomicAdd(&centers_size[cur_memb],sizeTemp);
+			        atomicAdd(&centers_size[cur_memb], sizeTemp);
                 sumTemp = 0;
                 sizeTemp = 0;
                 cur_memb = memb_shared[tid + x];
@@ -269,14 +269,14 @@ int main(int argc, char **argv) {
         delta = 0.0;
 
         //calculate closest centers
-        findClosest<<<block_count,thread_count>>>(objects_d, clusters_d, membership_d, change_d, numObjs, numClusters, numCoords);
+        findClosest<<<block_count_reduce,thread_count_reduce>>>(objects_d, clusters_d, membership_d, change_d, numObjs, numClusters, numCoords);
         gpuErrchk( cudaPeekAtLastError());
         
         //find delta
-        for(int i = numObjs; i > 1; i =  upperbound(i, 2 * thread_count))
+        for(int i = numObjs; i > 1; i =  upperbound(i, 2 * thread_count_reduce))
         {
-            int blocks = upperbound(i, thread_count * 2);
-            findDelta<<<blocks,thread_count, thread_count * sizeof(int)>>>(change_d, i);
+            int blocks = upperbound(i, thread_count_reduce * 2);
+            findDelta<<<blocks,thread_count_reduce, thread_count_reduce * sizeof(int)>>>(change_d, i);
             gpuErrchk( cudaPeekAtLastError());
         }
         gpuErrchk(cudaMemcpy(&temp_delta, change_d, sizeof(int), cudaMemcpyDeviceToHost));
