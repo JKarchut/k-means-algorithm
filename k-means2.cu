@@ -91,6 +91,7 @@ __global__ void findClosest(
             clustId = i;
         }
     }
+    printf("%f \n", objects[objId * numCoord]);
     membership[objId] = clustId;
     if(initialMembership != clustId)
         change[objId] = 1;
@@ -143,7 +144,6 @@ __global__ void updateCenters(
         return;
     }
     data[tid * numCoords + dim] = objects[i * numCoords + dim];
-    printf("%f \n",data[tid * numCoords + dim]);
     if(dim == 0)
     {
         memb_shared[tid] = membership_ordered[i];
