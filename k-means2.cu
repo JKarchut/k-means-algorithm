@@ -155,8 +155,6 @@ __global__ void updateCenters(
         int cur_memb = memb_shared[tid];
         for(int x = 0; x < blockDim.x && i + x < numObjects; x++)
         {
-            sumTemp += data[x * numCoords + dim];
-            sizeTemp++;
             if(cur_memb != memb_shared[tid + x])
             {
                 atomicAdd(&centers[cur_memb * numCoords + dim], sumTemp);
@@ -165,6 +163,11 @@ __global__ void updateCenters(
                 sumTemp = 0;
                 sizeTemp = 0;
                 cur_memb = memb_shared[tid + x];
+            }
+            else
+            {
+                sumTemp += data[x * numCoords + dim];
+                sizeTemp++;
             }
         }
     } 
