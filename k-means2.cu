@@ -133,8 +133,9 @@ __global__ void updateCenters(
     int numCoords,
     int numCenters)
 {
-    extern __shared__ float data[];
-    int *memb_shared = (int*)&data[blockDim.x * numCoords]; 
+    extern __shared__ int data[];
+    float *sdata = (float*)data;
+    int *memb_shared = (int*)&sdata[blockDim.x * numCoords]; 
     unsigned int tid = threadIdx.x;
     unsigned int dim = threadIdx.y;
     unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -142,7 +143,7 @@ __global__ void updateCenters(
     {
         return;
     }
-    data[tid * numCoords + dim] = objects[i * numCoords + dim];
+    sdata[tid * numCoords + dim] = objects[i * numCoords + dim];
     if(dim == 0)
     {
         memb_shared[tid] = membership_ordered[i];
@@ -152,7 +153,7 @@ __global__ void updateCenters(
     {
         float sumTemp = 0;
         int sizeTemp = 0;
-        int cur_memb = memb_shared[tid];
+        int cur_memb = memb_shared[0];
         for(int x = 0; x < blockDim.x && i + x < numObjects; x++)
         {
             if(cur_memb != memb_shared[x])
@@ -166,7 +167,7 @@ __global__ void updateCenters(
             }
             else
             {
-                sumTemp += data[x * numCoords + dim];
+                sumTemp += sdata[x * numCoords + dim];
                 sizeTemp++;
             }
         }
