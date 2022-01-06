@@ -185,18 +185,6 @@ __global__ void divideCenters(float *center, int *centerSize, float *old_center,
             old_center[i * numCoords + x] = center[i * numCoords + x];
         }
     }
-    __syncthreads();
-    if(i == 0)
-    {
-       for(int x = 0; x < 5; x++)
-        {
-            for(int y = 0; y < numCoords; y++)
-            {
-                printf("%f ", old_center[x * numCoords + y]);
-            }
-            printf("\n");
-        } 
-    }
     centerSize[i] = 0;
 }
 
@@ -281,7 +269,6 @@ int main(int argc, char **argv) {
     thrust::device_vector<int> objects_ordered(numObjs);
     thrust::device_vector<int> membership_ordered(numObjs);
     gettimeofday(&begin, 0);
-    int count = 0;
     do{
         delta = 0.0;
 
@@ -320,7 +307,7 @@ int main(int argc, char **argv) {
         delta /= numObjs;
         printf("%f\n",delta);
         count++;
-    }while(delta > threshold && count < 1);
+    }while(delta > threshold);
     gettimeofday(&end, 0);
     double clustering_timing = GetElapsed(begin,end);
 
