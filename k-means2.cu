@@ -142,6 +142,7 @@ __global__ void updateCenters(
     {
         return;
     }
+    printf("%d %d\n", i, dim);
     data[tid * numCoords + dim] = objects[i * numCoords + dim];
     if(dim == 0)
     {
@@ -155,14 +156,14 @@ __global__ void updateCenters(
         int cur_memb = memb_shared[tid];
         for(int x = 0; x < blockDim.x && i + x < numObjects; x++)
         {
-            if(cur_memb != memb_shared[tid + x])
+            if(cur_memb != memb_shared[x])
             {
                 atomicAdd(&centers[cur_memb * numCoords + dim], sumTemp);
                 if(dim == 0)
 			        atomicAdd(&centers_size[cur_memb], sizeTemp);
                 sumTemp = 0;
                 sizeTemp = 0;
-                cur_memb = memb_shared[tid + x];
+                cur_memb = memb_shared[x];
             }
             else
             {
@@ -276,7 +277,6 @@ int main(int argc, char **argv) {
     int block_count_reduce = upperbound(numObjs, thread_count_reduce);
     dim3 thread_count_centers = dim3(1024/numCoords , numCoords);
     int block_count_centers = upperbound(numObjs ,thread_count_centers.x);
-    printf("%d \n",block_count_centers);
     int sharedMemSize = (sizeof(int) * thread_count_centers.x) + (sizeof(float) * thread_count_centers.x * numCoords);
     thrust::device_vector<int> objects_ordered(numObjs);
 
@@ -287,14 +287,14 @@ int main(int argc, char **argv) {
 
         //calculate closest centers
         findClosest<<<block_count_reduce,thread_count_reduce>>>(objects_d, clusters_d, membership_d, change_d, numObjs, numClusters, numCoords);
-        gpuErrchk( cudaPeekAtLastError());
+        gpuErrchk(cudaPeekAtLastError());
         
         //find delta
         for(int i = numObjs; i > 1; i =  upperbound(i, 2 * thread_count_reduce))
         {
             int blocks = upperbound(i, thread_count_reduce * 2);
             findDelta<<<blocks,thread_count_reduce, thread_count_reduce * sizeof(int)>>>(change_d, i);
-            gpuErrchk( cudaPeekAtLastError());
+            gpuErrchk(cudaPeekAtLastError());
         }
         gpuErrchk(cudaMemcpy(&temp_delta, change_d, sizeof(int), cudaMemcpyDeviceToHost));
         gpuErrchk(cudaMemset(temp_d, 0, sizeof(float) * numCoords * numClusters));
