@@ -138,7 +138,6 @@ __global__ void updateCenters(
     unsigned int tid = threadIdx.x;
     unsigned int dim = threadIdx.y;
     unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
-    printf("%d %d\n",i,dim);
     if(i > numObjects) 
     {
         return;
@@ -154,7 +153,7 @@ __global__ void updateCenters(
         float sumTemp = 0;
         int sizeTemp = 0;
         int cur_memb = memb_shared[tid];
-        for(int x = 0; x < blockDim.x; x++)
+        for(int x = 0; x < blockDim.x && i + x < numObjects; x++)
         {
             sumTemp += data[x * numCoords + dim];
             sizeTemp++;
