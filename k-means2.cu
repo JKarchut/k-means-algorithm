@@ -91,7 +91,6 @@ __global__ void findClosest(
             clustId = i;
         }
     }
-    printf("%f \n", objects[objId * numCoord]);
     membership[objId] = clustId;
     if(initialMembership != clustId)
         change[objId] = 1;
@@ -139,6 +138,7 @@ __global__ void updateCenters(
     unsigned int tid = threadIdx.x;
     unsigned int dim = threadIdx.y;
     unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
+    printf("%d %d\n",i,dim);
     if(i > numObjects) 
     {
         return;
@@ -182,7 +182,18 @@ __global__ void divideCenters(float *center, int *centerSize, float *old_center,
             old_center[i * numCoords + x] = center[i * numCoords + x];
         }
     }
-    printf("%f %d\n",old_center[i * numCoords], centerSize[i]);
+    __syncthreads();
+    if(i == 0)
+    {
+       for(int x = 0; x < 5; x++)
+        {
+            for(int y = 0; y < numCoords; y++)
+            {
+                printf("%f ", old_center[x * numCoords + y]);
+            }
+            printf("\n");
+        } 
+    }
     centerSize[i] = 0;
 }
 
