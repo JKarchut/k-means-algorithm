@@ -281,6 +281,7 @@ int main(int argc, char **argv) {
     thrust::device_vector<int> objects_ordered(numObjs);
 
     gettimeofday(&begin, 0);
+    int count = 0;
     do{
         delta = 0.0;
 
@@ -297,7 +298,7 @@ int main(int argc, char **argv) {
         }
         gpuErrchk(cudaMemcpy(&temp_delta, change_d, sizeof(int), cudaMemcpyDeviceToHost));
         gpuErrchk(cudaMemset(temp_d, 0, sizeof(float) * numCoords * numClusters));
-        printf("done\n");
+        printf("%f\n",delta);
 
         thrust::copy(thrust::counting_iterator<int>(0),
                  thrust::counting_iterator<int>(numObjs),
@@ -317,7 +318,8 @@ int main(int argc, char **argv) {
         
         delta = temp_delta;
         delta /= numObjs;
-    }while(delta > threshold);
+        count++;
+    }while(delta > threshold && count < 100);
     gettimeofday(&end, 0);
     double clustering_timing = GetElapsed(begin,end);
 
