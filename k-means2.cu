@@ -143,7 +143,7 @@ __global__ void updateCenters(
     {
         return;
     }
-    sdata[tid * numCoords + dim] = objects[i * numCoords + dim];
+    sdata[tid * numCoords + dim] = objects[objects_ordered[i] * numCoords + dim];
     if(dim == 0)
     {
         memb_shared[tid] = membership_ordered[i];
@@ -299,9 +299,9 @@ int main(int argc, char **argv) {
         thrust::copy(thrust::counting_iterator<int>(0),
                  thrust::counting_iterator<int>(numObjs),
                  objects_ordered.begin());
-        /*thrust::sort_by_key(membership_d,
-                        &membership_d[numObjs],
-                        objects_ordered.begin());*/
+        thrust::sort_by_key(membership_d,
+                        &membership_d[numObjs - 1],
+                        objects_ordered.begin());
         // calculate new centers sum and centerSize
 
         updateCenters<<<block_count_centers, thread_count_centers, sharedMemSize>>>
