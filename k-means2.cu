@@ -143,6 +143,7 @@ __global__ void updateCenters(
         return;
     }
     data[tid * numCoords + dim] = objects[i * numCoords + dim];
+    printf("%f \n",data[tid * numCoords + dim]);
     if(dim == 0)
     {
         memb_shared[tid] = membership_ordered[i];
@@ -260,8 +261,9 @@ int main(int argc, char **argv) {
     
     int thread_count_reduce = 1024;
     int block_count_reduce = upperbound(numObjs, thread_count_reduce);
-    dim3 thread_count_centers = dim3(1024/numCoords,numCoords);
-    int block_count_centers = upperbound(numObjs,thread_count_centers.x);
+    dim3 thread_count_centers = dim3(1024/numCoords , numCoords);
+    int block_count_centers = upperbound(numObjs ,thread_count_centers.x);
+    printf("%d \n",block_count_centers);
     int sharedMemSize = (sizeof(int) * thread_count_centers.x) + (sizeof(float) * thread_count_centers.x * numCoords);
     thrust::device_vector<int> objects_ordered(numObjs);
 
