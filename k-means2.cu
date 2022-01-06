@@ -142,7 +142,7 @@ __global__ void updateCenters(
     {
         return;
     }
-    data[tid * numCoords + dim] = objects[objects_ordered[i] * numCoords + dim];
+    data[tid * numCoords + dim] = objects[i * numCoords + dim];
     if(dim == 0)
     {
         memb_shared[tid] = membership_ordered[i];
