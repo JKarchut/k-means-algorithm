@@ -147,7 +147,6 @@ __global__ void updateCenters(
     if(dim == 0)
     {
         memb_shared[tid] = membership_ordered[i];
-        printf("%d\n", memb_shared[tid]);
     }
     __syncthreads();
     if(tid == 0)
@@ -169,6 +168,9 @@ __global__ void updateCenters(
             sumTemp += sdata[x * numCoords + dim];
             sizeTemp++;
         }
+        atomicAdd(&centers[cur_memb * numCoords + dim], sumTemp);
+                if(dim == 0)
+			        atomicAdd(&centers_size[cur_memb], sizeTemp);
     } 
 }
 
