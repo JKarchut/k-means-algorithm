@@ -310,7 +310,7 @@ int main(int argc, char **argv) {
     double clustering_timing = GetElapsed(begin,end);
 
     gpuErrchk(cudaMemcpy(clusters_h, clusters_d, sizeof(float) * numClusters * numCoords, cudaMemcpyDeviceToHost));
-    std::ofstream output("output.txt");
+    std::ofstream output("output2.txt");
     for(int i = 0; i < numClusters; i++)
     {
         output << i << ' ';
@@ -332,7 +332,7 @@ int main(int argc, char **argv) {
     cudaFree(temp_d);
     cudaFree(clusterSize_d);
 
-    printf("\nPerforming **** Regular Kmeans (parallel version 1 (centers using reduce)) ****\n");
+    printf("\nPerforming **** Kmeans (parallel version 2 (sort + reduce)) ****\n");
     printf("Input file:     %s\n", filename);
     printf("numObjs       = %d\n", numObjs);
     printf("numCoords     = %d\n", numCoords);
