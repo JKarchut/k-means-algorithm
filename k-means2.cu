@@ -276,7 +276,7 @@ int main(int argc, char **argv) {
     int block_count_centers = upperbound(numObjs ,thread_count_centers.x);
     int sharedMemSize = (sizeof(int) * thread_count_centers.x) + (sizeof(float) * thread_count_centers.x * numCoords);
     thrust::device_vector<int> objects_ordered(numObjs);
-
+    thrust::device_vector<int> membership_ordered(numObjs);
     gettimeofday(&begin, 0);
     int count = 0;
     do{
@@ -299,13 +299,14 @@ int main(int argc, char **argv) {
         thrust::copy(thrust::counting_iterator<int>(0),
                  thrust::counting_iterator<int>(numObjs),
                  objects_ordered.begin());
-        thrust::sort_by_key(membership_d,
-                        &membership_d[numObjs - 1],
+        thrust::copy(membership_d, &membership_d[numObjs - 1], membership_ordered.begin());
+        thrust::sort_by_key(membership_ordered.begin(),
+                        membership_ordered.end(),
                         objects_ordered.begin());
         // calculate new centers sum and centerSize
 
         updateCenters<<<block_count_centers, thread_count_centers, sharedMemSize>>>
-        (objects_d, membership_d, thrust::raw_pointer_cast(objects_ordered.data()), clusterSize_d, temp_d, numObjs, numCoords, numClusters);
+        (objects_d, thrust::raw_pointer_cast(membership_ordered.data()), thrust::raw_pointer_cast(objects_ordered.data()), clusterSize_d, temp_d, numObjs, numCoords, numClusters);
         gpuErrchk( cudaPeekAtLastError());
         
         // divide centers sum by size
