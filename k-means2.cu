@@ -138,7 +138,7 @@ __global__ void updateCenters(
     unsigned int tid = threadIdx.x;
     unsigned int dim = threadIdx.y;
     unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if(i > numObjects) 
+    if(i >= numObjects) 
     {
         return;
     }
