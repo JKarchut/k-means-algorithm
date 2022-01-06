@@ -299,7 +299,7 @@ int main(int argc, char **argv) {
         thrust::copy(thrust::counting_iterator<int>(0),
                  thrust::counting_iterator<int>(numObjs),
                  objects_ordered.begin());
-        thrust::copy(membership_d, &membership_d[numObjs - 1], membership_ordered.begin());
+        thrust::copy(membership_d, &membership_d[numObjs], membership_ordered.begin());
         thrust::sort_by_key(membership_ordered.begin(),
                         membership_ordered.end(),
                         objects_ordered.begin());
