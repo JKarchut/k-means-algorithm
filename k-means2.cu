@@ -294,7 +294,7 @@ int main(int argc, char **argv) {
                         objects_ordered.begin());*/
         // calculate new centers sum and centerSize
 
-        updateCenters<<<block_count_centers, thread_count_centers, sharedMemSize>>>
+        updateCenters<<<dim3(block_count_centers,1), thread_count_centers, sharedMemSize>>>
         (objects_d, membership_d, thrust::raw_pointer_cast(objects_ordered.data()), clusterSize_d, temp_d, numObjs, numCoords, numClusters);
         gpuErrchk( cudaPeekAtLastError());
         
