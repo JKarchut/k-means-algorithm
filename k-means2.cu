@@ -142,7 +142,6 @@ __global__ void updateCenters(
     {
         return;
     }
-    printf("%d %d\n", i, dim);
     data[tid * numCoords + dim] = objects[i * numCoords + dim];
     if(dim == 0)
     {
