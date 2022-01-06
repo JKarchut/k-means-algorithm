@@ -155,7 +155,7 @@ __global__ void updateCenters(
         int cur_memb = memb_shared[tid];
         for(int x = 0; x < blockDim.x; x++)
         {
-            sumTemp += data[(tid + x) * numCoords + dim];
+            sumTemp += data[x * numCoords + dim];
             sizeTemp++;
             if(cur_memb != memb_shared[tid + x])
             {
