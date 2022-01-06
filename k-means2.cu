@@ -305,8 +305,6 @@ int main(int argc, char **argv) {
         
         delta = temp_delta;
         delta /= numObjs;
-        printf("%f\n",delta);
-        count++;
     }while(delta > threshold);
     gettimeofday(&end, 0);
     double clustering_timing = GetElapsed(begin,end);
