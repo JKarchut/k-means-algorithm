@@ -9,6 +9,11 @@
 #include <unistd.h>     /* getopt() */
 #include <fstream>
 #include <cfloat>
+#include <thrust/device_vector.h>
+#include <thrust/sort.h>
+#include <thrust/fill.h>
+#include <thrust/iterator/counting_iterator.h>
+
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
 {
@@ -126,10 +131,10 @@ __global__ void updateCenters(
     float *centers, 
     int numObjects, 
     int numCoords,
-    int centerNumber)
+    int numCenters)
 {
-    extern __shared__ float sdata[];
-    int *memb_shared = (*int)&sdata[blockDim.x * numCoords]; 
+    extern __shared__ float data[];
+    int *memb_shared = (*int)&data[blockDim.x * numCoords]; 
     unsigned int tid = threadIdx.x;
     unsigned int dim = threadIdx.y;
     unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -137,10 +142,10 @@ __global__ void updateCenters(
     {
         return;
     }
-    sdata[tid * numCoords + dim] = objects[i * numCoords + dim];
+    sdata[tid * numCoords + dim] = objects[objects_ordered[i] * numCoords + dim];
     if(dim == 0)
     {
-        memb_shared[tid] = membership[i];
+        memb_shared[tid] = membership_ordered[i];
     }
     __syncthreads();
     if(tid == 0)
@@ -150,7 +155,7 @@ __global__ void updateCenters(
         int cur_memb = memb_shared[tid];
         for(int x = 0; x < blockDim.x; x++)
         {
-            sumTemp += sdata[(tid + x) * numCoords + dim];
+            sumTemp += data[(tid + x) * numCoords + dim];
             sizeTemp++;
             if(cur_memb != memb_shared[tid + x])
             {
@@ -252,9 +257,13 @@ int main(int argc, char **argv) {
     gpuErrchk(cudaMalloc(&temp_d, sizeof(float) * numClusters * numCoords));
     gpuErrchk(cudaMemcpy(clusters_d, clusters_h, numClusters * numCoords * sizeof(float), cudaMemcpyHostToDevice));
     
-    int thread_count = 1024;
-    int block_count = upperbound(numObjs, thread_count);
-    int sharedMemSize = (sizeof(int) * thread_count) + (sizeof(float) * thread_count * numCoords) + (numClusters * sizeof(int)) + (numClusters * numCoords * sizeof(float));
+    int thread_count_reduce = 1024;
+    int block_count_reduce = upperbound(numObjs, thread_count_reduce);
+    dim3 thread_count_centers = dim3(1024/numCoords,numCoords);
+    int block_count_centers = upperbound(numObjs,thread_count_centers.x);
+    int sharedMemSize = (sizeof(int) * thread_count_centers.x) + (sizeof(float) * thread_count_centers.x * numCoords);
+    thrust::device_vector<int> objects_ordered(numObjs);
+
     gettimeofday(&begin, 0);
     do{
         delta = 0.0;
@@ -272,9 +281,17 @@ int main(int argc, char **argv) {
         }
         gpuErrchk(cudaMemcpy(&temp_delta, change_d, sizeof(int), cudaMemcpyDeviceToHost));
         gpuErrchk(cudaMemset(temp_d, 0, sizeof(float) * numCoords * numClusters));
-        
+       
+        thrust::copy(thrust::counting_iterator<int>(0),
+                 thrust::counting_iterator<int>(numObjs),
+                 objects_ordered.begin());
+        thrust::sort_by_key(membership_d,
+                        &membership_d[numObjs],
+                        objects_ordered.begin());
         // calculate new centers sum and centerSize
-        updateCenters<<<block_count, thread_count, sharedMemSize>>>(objects_d, membership_d, temp_d, clusterSize_d, numObjs, numCoords, numClusters);
+
+        updateCenters<<<block_count_centers, thread_count_centers, sharedMemSize>>>
+        (objects_d, membership_d, thrust::raw_pointer_cast(objects_ordered.data()), clusterSize_d, temp_d, numObjs, numCoords, numClusters);
         gpuErrchk( cudaPeekAtLastError());
         
         // divide centers sum by size
