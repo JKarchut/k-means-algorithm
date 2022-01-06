@@ -282,13 +282,14 @@ int main(int argc, char **argv) {
         }
         gpuErrchk(cudaMemcpy(&temp_delta, change_d, sizeof(int), cudaMemcpyDeviceToHost));
         gpuErrchk(cudaMemset(temp_d, 0, sizeof(float) * numCoords * numClusters));
-       
+        printf("done\n");
+
         thrust::copy(thrust::counting_iterator<int>(0),
                  thrust::counting_iterator<int>(numObjs),
                  objects_ordered.begin());
-        thrust::sort_by_key(membership_d,
+        /*thrust::sort_by_key(membership_d,
                         &membership_d[numObjs],
-                        objects_ordered.begin());
+                        objects_ordered.begin());*/
         // calculate new centers sum and centerSize
 
         updateCenters<<<block_count_centers, thread_count_centers, sharedMemSize>>>
