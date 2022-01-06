@@ -298,7 +298,6 @@ int main(int argc, char **argv) {
         }
         gpuErrchk(cudaMemcpy(&temp_delta, change_d, sizeof(int), cudaMemcpyDeviceToHost));
         gpuErrchk(cudaMemset(temp_d, 0, sizeof(float) * numCoords * numClusters));
-        printf("%f\n",delta);
 
         thrust::copy(thrust::counting_iterator<int>(0),
                  thrust::counting_iterator<int>(numObjs),
@@ -318,6 +317,7 @@ int main(int argc, char **argv) {
         
         delta = temp_delta;
         delta /= numObjs;
+        printf("%f\n",delta);
         count++;
     }while(delta > threshold && count < 100);
     gettimeofday(&end, 0);
