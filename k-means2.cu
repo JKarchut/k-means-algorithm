@@ -147,6 +147,7 @@ __global__ void updateCenters(
     if(dim == 0)
     {
         memb_shared[tid] = membership_ordered[i];
+        printf("%d\n", memb_shared[tid]);
     }
     __syncthreads();
     if(tid == 0)
@@ -317,7 +318,7 @@ int main(int argc, char **argv) {
         delta /= numObjs;
         printf("%f\n",delta);
         count++;
-    }while(delta > threshold && count < 100);
+    }while(delta > threshold && count < 1);
     gettimeofday(&end, 0);
     double clustering_timing = GetElapsed(begin,end);
 
